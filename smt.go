@@ -10,7 +10,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/rlp"
 	lru "github.com/hashicorp/golang-lru"
@@ -429,7 +428,6 @@ func (tree *BASSparseMerkleTree) Set(key uint64, val []byte) error {
 }
 
 func (tree *BASSparseMerkleTree) MultiSet(items []Item) error {
-	defer timeCost("=====MultiSet")()
 	if len(items) == 0 {
 		return nil
 	}
@@ -509,8 +507,7 @@ func (tree *BASSparseMerkleTree) MultiSet(items []Item) error {
 	return nil
 }
 
-func (tree *BASSparseMerkleTree) MultiSet2(items []Item) error {
-	defer timeCost("=====MultiSet2")()
+func (tree *BASSparseMerkleTree) MultiUpdate(items []Item) error {
 	if len(items) == 0 {
 		return nil
 	}
@@ -518,7 +515,6 @@ func (tree *BASSparseMerkleTree) MultiSet2(items []Item) error {
 	targetNode := tree.root
 	tmpJournal := newJournal()
 	wg := sync.WaitGroup{}
-	//intermediates := make(map[hashCoordinate]chan []byte)
 	depthInter := make(map[uint8][]*TreeNode)
 	targets := newNodeWithNibble(tmpJournal)
 	for _, item := range items {
@@ -542,10 +538,10 @@ func (tree *BASSparseMerkleTree) MultiSet2(items []Item) error {
 			if _, exist := tmpJournal.get(journalKey{targetNode.depth, targetNode.path}); !exist {
 				tmpJournal.set(journalKey{targetNode.depth, targetNode.path}, targetNode.Copy())
 			}
-			if targetNode.depth < tree.maxDepth {
-				keys := hashesToCompute(nibble)
-				targets.setNibbles(journalKey{targetNode.depth, targetNode.path}, keys)
-			}
+
+			// add nibbles to parent
+			keys := hashesToCompute(nibble)
+			targets.setNibbles(journalKey{depth: depth - 4, path: path >> 4}, keys)
 
 			// create a new treeNode in targetNode
 			if err := tree.extendNode(targetNode, nibble, path, depth, true); err != nil {
@@ -583,27 +579,21 @@ func (tree *BASSparseMerkleTree) MultiSet2(items []Item) error {
 		}(targetNode)
 	}
 	wg.Wait()
-	_ = targets.iterateNibbles(func(k journalKey, v map[uint64]struct{}) error {
-		var nibbles []uint64
-		for vk := range v {
-			nibbles = append(nibbles, vk)
-		}
-		fmt.Printf("Target: %d - %d, nibbles: %v\n", k.depth, k.path, nibbles)
-		return nil
-	})
+	//_ = targets.iterateNibbles(func(k journalKey, v map[uint64]struct{}) error {
+	//	var nibbles []uint64
+	//	for vk := range v {
+	//		nibbles = append(nibbles, vk)
+	//	}
+	//	fmt.Printf("Target: %d - %d, nibbles: %v\n", k.depth, k.path, nibbles)
+	//	return nil
+	//})
 
-	// point root node to the new one
-	newRoot, exist := tmpJournal.get(journalKey{tree.root.depth, tree.root.path})
-	if !exist {
-		return ErrUnexpected
-	}
-	fmt.Println("Original hash: ", newRoot.Root())
-	for _, c := range newRoot.Children {
-		if c != nil && len(c.Versions) > 1 {
-			v := c.Versions[len(c.Versions)-1]
-			fmt.Printf("Child: %d, version: %d, hash: 0x%x\n", c.path, v.Ver, v.Hash)
-		}
-	}
+	//for _, c := range newRoot.Children {
+	//	if c != nil && len(c.Versions) > 1 {
+	//		v := c.Versions[len(c.Versions)-1]
+	//		fmt.Printf("Child: %d, version: %d, hash: 0x%x\n", c.path, v.Ver, v.Hash)
+	//	}
+	//}
 
 	_ = tmpJournal.iterate(func(k journalKey, v *TreeNode) error {
 		depthInter[k.depth] = append(depthInter[k.depth], v)
@@ -628,7 +618,12 @@ func (tree *BASSparseMerkleTree) MultiSet2(items []Item) error {
 		depthWg.Wait()
 	}
 
-	fmt.Println("Recompute hash: ", newRoot.Root())
+	// point root node to the new one
+	newRoot, exist := tmpJournal.get(journalKey{tree.root.depth, tree.root.path})
+	if !exist {
+		return ErrUnexpected
+	}
+	fmt.Printf("Recomputed hash: %x\n", newRoot.Root())
 	tree.root = newRoot
 
 	// flush into journal
@@ -1040,12 +1035,4 @@ func (n *nodeWithNibble) iterateNibbles(callback func(k journalKey, v map[uint64
 		}
 	}
 	return nil
-}
-
-func timeCost(m string) func() {
-	start := time.Now()
-	return func() {
-		tc := time.Since(start)
-		fmt.Printf("%s time cost = %v\n", m, tc)
-	}
 }

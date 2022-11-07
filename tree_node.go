@@ -173,7 +173,7 @@ func (node *TreeNode) SetChildren(child *TreeNode, nibble int, version Version) 
 	defer node.mu.Unlock()
 
 	node.Children[nibble] = child
-	fmt.Printf("Computing child %d....\n", nibble)
+	//fmt.Printf("Computing child %d....\n", nibble)
 
 	left, right := node.nilChildHash, node.nilChildHash
 	switch nibble % 2 {
@@ -184,7 +184,7 @@ func (node *TreeNode) SetChildren(child *TreeNode, nibble int, version Version) 
 		if node.Children[nibble^1] != nil {
 			right = node.Children[nibble^1].Root()
 		}
-		fmt.Printf("Will compute leaf %d , %d\n", nibble, nibble^1)
+		//fmt.Printf("Will compute leaf %d , %d\n", nibble, nibble^1)
 	case 1:
 		if node.Children[nibble] != nil {
 			right = node.Children[nibble].Root()
@@ -192,7 +192,7 @@ func (node *TreeNode) SetChildren(child *TreeNode, nibble int, version Version) 
 		if node.Children[nibble^1] != nil {
 			left = node.Children[nibble^1].Root()
 		}
-		fmt.Printf("Will compute leaf %d , %d\n", nibble^1, nibble)
+		//fmt.Printf("Will compute leaf %d , %d\n", nibble^1, nibble)
 	}
 	prefix := 6
 	for i := 4; i >= 1; i >>= 1 {
@@ -202,11 +202,11 @@ func (node *TreeNode) SetChildren(child *TreeNode, nibble int, version Version) 
 		case 0:
 			left = node.Internals[prefix+nibble]
 			right = node.Internals[prefix+nibble^1]
-			fmt.Printf("Will compute %d , %d\n", prefix+nibble, prefix+nibble^1)
+			//fmt.Printf("Will compute %d , %d\n", prefix+nibble, prefix+nibble^1)
 		case 1:
 			right = node.Internals[prefix+nibble]
 			left = node.Internals[prefix+nibble^1]
-			fmt.Printf("Will compute %d , %d\n", prefix+nibble^1, prefix+nibble)
+			//fmt.Printf("Will compute %d , %d\n", prefix+nibble^1, prefix+nibble)
 		}
 		prefix = prefix - i
 	}
