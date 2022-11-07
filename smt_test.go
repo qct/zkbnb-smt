@@ -8,15 +8,15 @@ package bsmt
 import (
 	"bytes"
 	"crypto/sha256"
-	"hash"
-	"testing"
-
+	"fmt"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/storage"
+	"hash"
+	"testing"
 
 	"github.com/bnb-chain/zkbnb-smt/database"
 	wrappedLevelDB "github.com/bnb-chain/zkbnb-smt/database/leveldb"
@@ -754,5 +754,185 @@ func Test_BASSparseMerkleTree_GC(t *testing.T) {
 	for _, env := range prepareEnv(t) {
 		t.Logf("test [%s]", env.tag)
 		testGC(t, env.hasher, env.db)
+	}
+}
+
+func Test_BASSparseMerkleTree(t *testing.T) {
+	memEnv := prepareEnv(t)[0]
+	t.Logf("test [%s]", memEnv.tag)
+	db, err := memEnv.db()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	smt, err := NewBASSparseMerkleTree(memEnv.hasher, db, 16, nilHash)
+	smt2, err := NewBASSparseMerkleTree(memEnv.hasher, db, 16, nilHash)
+	// test set
+	//fmt.Println("Size: ", smt.Size())
+	//_ = smt.Set(1, common.FromHex("0x1"))
+	//smt.Commit(nil)
+	//fmt.Println("Size: ", smt.Size())
+	//fmt.Println(smt)
+
+	//aaa := testF()
+	//fmt.Println(aaa)
+
+	// test multi set
+	//{Key: 0, Val: common.FromHex("0x0")},
+	//{Key: 1, Val: common.FromHex("0x1")},
+	////{Key: 2, Val: common.FromHex("0x2")},
+	////{Key: 24, Val: common.FromHex("0x4")},
+	////{Key: 8, Val: common.FromHex("0x8")},
+	////{Key: 128, Val: common.FromHex("0x128")},
+	////{Key: 15, Val: common.FromHex("0x15")},
+	err = smt2.MultiSet2([]Item{
+		{Key: 0, Val: common.FromHex("0x0")},
+		{Key: 1, Val: common.FromHex("0x1")},
+		{Key: 2, Val: common.FromHex("0x2")},
+		{Key: 3, Val: common.FromHex("0x3")},
+		//{Key: 4, Val: common.FromHex("0x4")},
+		//{Key: 5, Val: common.FromHex("0x5")},
+		//{Key: 6, Val: common.FromHex("0x6")},
+		//{Key: 7, Val: common.FromHex("0x7")},
+		//{Key: 8, Val: common.FromHex("0x8")},
+		//{Key: 9, Val: common.FromHex("0x9")},
+		//{Key: 10, Val: common.FromHex("0xa")},
+		//{Key: 11, Val: common.FromHex("0xb")},
+		//{Key: 12, Val: common.FromHex("0xc")},
+		//{Key: 13, Val: common.FromHex("0xd")},
+		//{Key: 14, Val: common.FromHex("0xe")},
+		//{Key: 15, Val: common.FromHex("0xf")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root2 := smt2.Root()
+	fmt.Println("======MultiSet2 root hash: ", root2)
+
+	err = smt.MultiSet([]Item{
+		{Key: 0, Val: common.FromHex("0x0")},
+		{Key: 1, Val: common.FromHex("0x1")},
+		{Key: 2, Val: common.FromHex("0x2")},
+		{Key: 3, Val: common.FromHex("0x3")},
+		//{Key: 4, Val: common.FromHex("0x4")},
+		//{Key: 5, Val: common.FromHex("0x5")},
+		//{Key: 6, Val: common.FromHex("0x6")},
+		//{Key: 7, Val: common.FromHex("0x7")},
+		//{Key: 8, Val: common.FromHex("0x8")},
+		//{Key: 9, Val: common.FromHex("0x9")},
+		//{Key: 10, Val: common.FromHex("0xa")},
+		//{Key: 11, Val: common.FromHex("0xb")},
+		//{Key: 12, Val: common.FromHex("0xc")},
+		//{Key: 13, Val: common.FromHex("0xd")},
+		//{Key: 14, Val: common.FromHex("0xe")},
+		//{Key: 15, Val: common.FromHex("0xf")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	root1 := smt.Root()
+	fmt.Println("=====MultiSet root hash: ", root1)
+
+	fmt.Println("======MultiSet == MultiSet2 ? ", string(root1) == string(root2))
+
+	// test get proof
+	//proof, err := smt.GetProof(0)
+	//fmt.Println(proof)
+	//smt.Commit(nil)
+	//fmt.Println(smt)
+}
+
+func Test_BASSparseMerkleTree_MultiSet2(t *testing.T) {
+	for _, env := range prepareEnv(t) {
+		t.Logf("test [%s]", env.tag)
+		testMultiSet2(t, env.hasher, env.db)
+	}
+}
+
+func testMultiSet2(t *testing.T, hasher *Hasher, dbInitializer func() (database.TreeDB, error)) {
+	db, err := dbInitializer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	smt, err := NewBASSparseMerkleTree(hasher, db, 8, nilHash,
+		GCThreshold(1024*10))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	db2, err := dbInitializer()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db2.Close()
+	smt2, err := NewBASSparseMerkleTree(hasher, db2, 8, nilHash,
+		GCThreshold(1024*10))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testKVData := []Item{
+		{1, hasher.Hash([]byte("val1"))},
+		{2, hasher.Hash([]byte("val2"))},
+		{3, hasher.Hash([]byte("val3"))},
+		{4, hasher.Hash([]byte("val4"))},
+		{5, hasher.Hash([]byte("val5"))},
+		{6, hasher.Hash([]byte("val6"))},
+		{7, hasher.Hash([]byte("val7"))},
+		{8, hasher.Hash([]byte("val8"))},
+	}
+
+	t.Log("set data")
+	err = smt.MultiSet2(testKVData)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = smt.Commit(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, item := range testKVData {
+		err := smt2.Set(item.Key, item.Val)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, err = smt2.Commit(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !bytes.Equal(smt.Root(), smt2.Root()) {
+		t.Fatalf("root hash does not match, %x, %x\n", smt.Root(), smt2.Root())
+	}
+
+	for _, item := range testKVData {
+		val, err := smt.Get(item.Key, nil)
+		if err != nil {
+			t.Fatal("get key from tree1 failed", item.Key, err)
+		}
+		val2, err := smt2.Get(item.Key, nil)
+		if err != nil {
+			t.Fatal("get key from tree2 failed", item.Key, err)
+		}
+		if !bytes.Equal(val, val2) {
+			t.Fatalf("leaf node does not match, %x, %x\n", val, val2)
+		}
+		if !bytes.Equal(val, item.Val) {
+			t.Fatalf("leaf node does not match the origin, %x, %x\n", val, item.Val)
+		}
+
+		proof, err := smt.GetProof(item.Key)
+		if err != nil {
+			t.Fatal("get proof from tree1 failed", item.Key, err)
+		}
+
+		if !smt2.VerifyProof(item.Key, proof) {
+			t.Fatal("verify proof from tree2 failed")
+		}
 	}
 }
