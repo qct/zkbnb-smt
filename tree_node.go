@@ -6,7 +6,6 @@
 package bsmt
 
 import (
-	"fmt"
 	"github.com/panjf2000/ants/v2"
 	"sort"
 	"sync"
@@ -383,7 +382,7 @@ func (node *TreeNode) computeInternal(nibbles map[uint64]struct{}, pool *ants.Po
 	}
 	node.mu.Lock()
 	defer node.mu.Unlock()
-	fmt.Println("computing child ", node.path)
+	//fmt.Println("computing child ", node.path)
 	nbArray := make([]uint64, 0, len(nibbles))
 	for nibble := range nibbles {
 		nbArray = append(nbArray, nibble)
@@ -467,7 +466,7 @@ func (node *TreeNode) latestVersion() Version {
 }
 
 func (node *TreeNode) childrenHash(nibble uint64) (left, right []byte) {
-	orig := nibble
+	//orig := nibble
 	if nibble >= 6 {
 		// find child in leaves
 		// 6: 14(0), 15(1), 8: 18(4), 19(5)
@@ -486,6 +485,6 @@ func (node *TreeNode) childrenHash(nibble uint64) (left, right []byte) {
 		left = node.Internals[nibble]
 		right = node.Internals[nibble^1]
 	}
-	fmt.Printf("find children of %d: %d, %d\n", orig, nibble, nibble^1)
+	//fmt.Printf("find children of %d: %d, %d\n", orig, nibble, nibble^1)
 	return
 }

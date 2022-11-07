@@ -8,7 +8,6 @@ package bsmt
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -601,7 +600,7 @@ func (tree *BASSparseMerkleTree) MultiUpdate(items []Item) error {
 	})
 
 	for i := int(tree.maxDepth - 4); i >= 0; i -= 4 {
-		fmt.Println("computing depth: ", i)
+		//fmt.Println("computing depth: ", i)
 		depthWg := sync.WaitGroup{}
 		depthWg.Add(len(depthInter[uint8(i)]))
 		for _, node := range depthInter[uint8(i)] {
@@ -623,7 +622,7 @@ func (tree *BASSparseMerkleTree) MultiUpdate(items []Item) error {
 	if !exist {
 		return ErrUnexpected
 	}
-	fmt.Printf("Recomputed hash: %x\n", newRoot.Root())
+	//fmt.Printf("Recomputed hash: %x\n", newRoot.Root())
 	tree.root = newRoot
 
 	// flush into journal
