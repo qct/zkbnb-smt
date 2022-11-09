@@ -827,6 +827,7 @@ func Test_BASSparseMerkleTree_MultiUpdate(t *testing.T) {
 }
 
 func testMultiUpdate(t *testing.T, env testEnv, items []Item, depth uint8) {
+	t.Logf("test depth %d", depth)
 	db1, err := env.db()
 	if err != nil {
 		t.Fatal(err)
@@ -865,8 +866,58 @@ func testMultiUpdate(t *testing.T, env testEnv, items []Item, depth uint8) {
 		t.Fatal(err)
 	}
 
+	verifyItems(t, smt1, smt2, items)
+}
+
+func newSMT(t *testing.T, hasher *Hasher, db database.TreeDB, maxDepth uint8) SparseMerkleTree {
+	smt, err := NewBASSparseMerkleTree(hasher, db, maxDepth, nilHash,
+		GCThreshold(1024*10))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return smt
+}
+
+func Test_BASSparseMerkleTree_Set(t *testing.T) {
+	for _, env := range prepareEnv(t) {
+		t.Logf("test [%s]", env.tag)
+		testSet(t, env, 8)
+	}
+}
+
+func testSet(t *testing.T, env testEnv, depth uint8) {
+	t.Logf("test depth %d", depth)
+	db1, err := env.db()
+	if err != nil {
+		t.Fatal(err)
+	}
+	db2, err := env.db()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db2.Close()
+
+	items := []Item{{201, env.hasher.Hash([]byte("val201"))}}
+	smt1 := newSMT(t, env.hasher, db1, depth)
+	smt1.Set(items[0].Key, items[0].Val)
+	_, err = smt1.Commit(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	smt2 := newSMT(t, env.hasher, db1, depth)
+	smt2.MultiSet(items)
+	_, err = smt2.Commit(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifyItems(t, smt1, smt2, items)
+}
+
+func verifyItems(t *testing.T, smt1 SparseMerkleTree, smt2 SparseMerkleTree, items []Item) {
 	if !bytes.Equal(smt1.Root(), smt2.Root()) {
-		t.Fatalf("root hash does not match, keys %d, depth %d, %x, %x\n", len(items), depth, smt1.Root(), smt2.Root())
+		t.Fatalf("root hash does not match, keys %d, %x, %x\n", len(items), smt1.Root(), smt2.Root())
 	}
 
 	for _, item := range items {
@@ -894,13 +945,4 @@ func testMultiUpdate(t *testing.T, env testEnv, items []Item, depth uint8) {
 			t.Fatal("verify proof from tree2 failed")
 		}
 	}
-}
-
-func newSMT(t *testing.T, hasher *Hasher, db database.TreeDB, maxDepth uint8) SparseMerkleTree {
-	smt, err := NewBASSparseMerkleTree(hasher, db, maxDepth, nilHash,
-		GCThreshold(1024*10))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return smt
 }

@@ -167,6 +167,54 @@ func (node *TreeNode) SetChildrenOnly(child *TreeNode, nibble int, version Versi
 	//})
 }
 
+func (node *TreeNode) setChildrenParallel(child *TreeNode, nibble int, version Version, pool *ants.Pool) {
+	node.mu.Lock()
+	defer node.mu.Unlock()
+	node.Children[nibble] = child
+
+	left, right := node.nilChildHash, node.nilChildHash
+	switch nibble % 2 {
+	case 0:
+		if node.Children[nibble] != nil {
+			left = node.Children[nibble].Root()
+		}
+		if node.Children[nibble^1] != nil {
+			right = node.Children[nibble^1].Root()
+		}
+		//fmt.Printf("Will compute leaf %d , %d\n", nibble, nibble^1)
+	case 1:
+		if node.Children[nibble] != nil {
+			right = node.Children[nibble].Root()
+		}
+		if node.Children[nibble^1] != nil {
+			left = node.Children[nibble^1].Root()
+		}
+		//fmt.Printf("Will compute leaf %d , %d\n", nibble^1, nibble)
+	}
+
+	prefix := 6
+	for i := 4; i >= 1; i >>= 1 {
+		nibble = nibble / 2
+		node.Internals[prefix+nibble] = node.hasher.Hash(left, right)
+		switch nibble % 2 {
+		case 0:
+			left = node.Internals[prefix+nibble]
+			right = node.Internals[prefix+nibble^1]
+			//fmt.Printf("Will compute %d , %d\n", prefix+nibble, prefix+nibble^1)
+		case 1:
+			right = node.Internals[prefix+nibble]
+			left = node.Internals[prefix+nibble^1]
+			//fmt.Printf("Will compute %d , %d\n", prefix+nibble^1, prefix+nibble)
+		}
+		prefix = prefix - i
+	}
+	// update current root node
+	node.newVersion(&VersionInfo{
+		Ver:  version,
+		Hash: node.hasher.Hash(node.Internals[0], node.Internals[1]),
+	})
+}
+
 func (node *TreeNode) SetChildren(child *TreeNode, nibble int, version Version) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
