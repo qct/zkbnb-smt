@@ -760,22 +760,6 @@ func Test_BASSparseMerkleTree_GC(t *testing.T) {
 
 func Test_BASSparseMerkleTree_MultiUpdate(t *testing.T) {
 	rawKvs := map[uint64]string{
-		//{Key: 0, Val: memEnv.hasher.Hash([]byte("val0"))},
-		//{Key: 1, Val: memEnv.hasher.Hash([]byte("val1"))},
-		//{Key: 2, Val: memEnv.hasher.Hash([]byte("val2"))},
-		//{Key: 3, Val: memEnv.hasher.Hash([]byte("val3"))},
-		//{Key: 4, Val: memEnv.hasher.Hash([]byte("val4"))},
-		//{Key: 5, Val: memEnv.hasher.Hash([]byte("val5"))},
-		//{Key: 6, Val: memEnv.hasher.Hash([]byte("val6"))},
-		//{Key: 7, Val: memEnv.hasher.Hash([]byte("val7"))},
-		//{Key: 8, Val: memEnv.hasher.Hash([]byte("val8"))},
-		//{Key: 9, Val: memEnv.hasher.Hash([]byte("val9"))},
-		//{Key: 10, Val: memEnv.hasher.Hash([]byte("val10"))},
-		//{Key: 11, Val: memEnv.hasher.Hash([]byte("val11"))},
-		//{Key: 12, Val: memEnv.hasher.Hash([]byte("val12"))},
-		//{Key: 13, Val: memEnv.hasher.Hash([]byte("val13"))},
-		//{Key: 14, Val: memEnv.hasher.Hash([]byte("val14"))},
-		//{Key: 15, Val: memEnv.hasher.Hash([]byte("val15"))},
 		1:   "val1",
 		2:   "val2",
 		3:   "val3",
