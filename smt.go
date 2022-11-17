@@ -8,7 +8,6 @@ package bsmt
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/rlp"
@@ -543,15 +542,15 @@ func (tree *BASSparseMerkleTree) MultiUpdate(items []Item) error {
 	}
 
 	wg.Wait()
-	_ = tmpJournal.iterate(func(k journalKey, v *TreeNode) error {
-		fmt.Printf("Target: %d - %d, %p\n", k.depth, k.path, v)
-		for _, c := range v.Children {
-			if c != nil {
-				fmt.Printf("  child: %d - %d, %p\n", c.depth, c.path, c)
-			}
-		}
-		return nil
-	})
+	//_ = tmpJournal.iterate(func(k journalKey, v *TreeNode) error {
+	//	fmt.Printf("Target: %d - %d, %p\n", k.depth, k.path, v)
+	//	for _, c := range v.Children {
+	//		if c != nil {
+	//			fmt.Printf("  child: %d - %d, %p\n", c.depth, c.path, c)
+	//		}
+	//	}
+	//	return nil
+	//})
 
 	//3. re-compute hash, care about dependency routes
 	leavesSize := leavesJournal.len()
@@ -617,11 +616,7 @@ func (tree *BASSparseMerkleTree) setIntermediateAndLeaves(tmpJournal *journal, i
 
 		// skip existed node
 		if _, exist := tmpJournal.get(journalKey{targetNode.depth, targetNode.path}); !exist {
-			node := targetNode.Copy()
-			if p, e := tmpJournal.get(journalKey{depth: targetNode.depth - 4, path: targetNode.path >> 4}); e {
-				p.Children[targetNode.path&0xf] = node
-			}
-			tmpJournal.set(journalKey{targetNode.depth, targetNode.path}, node)
+			tmpJournal.set(journalKey{targetNode.depth, targetNode.path}, targetNode.Copy())
 		}
 
 		// create a new treeNode in targetNode
@@ -634,9 +629,6 @@ func (tree *BASSparseMerkleTree) setIntermediateAndLeaves(tmpJournal *journal, i
 	targetNode = targetNode.Copy()
 	targetNode.Set(val, newVersion) // update hash of leaf node
 	tmpJournal.set(journalKey{targetNode.depth, targetNode.path}, targetNode)
-	if p, e := tmpJournal.get(journalKey{depth: targetNode.depth - 4, path: targetNode.path >> 4}); e {
-		p.Children[targetNode.path&0xf] = targetNode
-	}
 	return targetNode, nil
 }
 

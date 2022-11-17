@@ -512,7 +512,7 @@ func (node *TreeNode) recompute(pool *ants.Pool, journals *journal) {
 			// skip if the parent is not exist
 			return
 		}
-		parent.calc(node, journals, version)
+		parent.calc(child, journals, version)
 		child = parent
 	}
 
@@ -524,9 +524,11 @@ func (node *TreeNode) recompute(pool *ants.Pool, journals *journal) {
 }
 
 func (node *TreeNode) calc(child *TreeNode, journals *journal, version Version) {
+	node.mu.Lock()
+	defer node.mu.Unlock()
 	// for all children, calc hash in parallel
 	nibble := int(child.path & 0xf)
-	node.Children[nibble] = node
+	node.Children[nibble] = child
 	// 1. recompute inner node in parallel
 	left, right := node.nilChildHash, node.nilChildHash
 	switch nibble % 2 {

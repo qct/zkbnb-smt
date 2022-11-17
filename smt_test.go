@@ -876,40 +876,40 @@ func Test_MultiUpdate(t *testing.T) {
 func Test_MultiUpdate2(t *testing.T) {
 	memEnv := prepareEnv(t)[0]
 	items := []Item{
-		{Key: 0, Val: memEnv.hasher.Hash([]byte("val0"))},
-		{Key: 1, Val: memEnv.hasher.Hash([]byte("val1"))},
-		//{1, memEnv.hasher.Hash([]byte("val1"))},
-		//{2, memEnv.hasher.Hash([]byte("val2"))},
-		//{3, memEnv.hasher.Hash([]byte("val3"))},
-		//{4, memEnv.hasher.Hash([]byte("val4"))},
-		//{5, memEnv.hasher.Hash([]byte("val5"))},
-		//{6, memEnv.hasher.Hash([]byte("val6"))},
-		//{7, memEnv.hasher.Hash([]byte("val7"))},
-		//{8, memEnv.hasher.Hash([]byte("val8"))},
-		//{9, memEnv.hasher.Hash([]byte("val9"))},
-		//{10, memEnv.hasher.Hash([]byte("val10"))},
-		//{11, memEnv.hasher.Hash([]byte("val11"))},
-		//{12, memEnv.hasher.Hash([]byte("val12"))},
-		//{13, memEnv.hasher.Hash([]byte("val13"))},
-		//{14, memEnv.hasher.Hash([]byte("val14"))},
-		//{200, memEnv.hasher.Hash([]byte("val200"))},
-		//{20, memEnv.hasher.Hash([]byte("val20"))},
-		//{21, memEnv.hasher.Hash([]byte("val21"))},
-		//{22, memEnv.hasher.Hash([]byte("val22"))},
-		//{23, memEnv.hasher.Hash([]byte("val23"))},
-		//{24, memEnv.hasher.Hash([]byte("val24"))},
-		//{26, memEnv.hasher.Hash([]byte("val26"))},
-		//{37, memEnv.hasher.Hash([]byte("val37"))},
-		//{255, memEnv.hasher.Hash([]byte("val255"))},
-		//{254, memEnv.hasher.Hash([]byte("val254"))},
-		//{253, memEnv.hasher.Hash([]byte("val253"))},
-		//{252, memEnv.hasher.Hash([]byte("val252"))},
-		//{251, memEnv.hasher.Hash([]byte("val251"))},
-		//{250, memEnv.hasher.Hash([]byte("val250"))},
-		//{249, memEnv.hasher.Hash([]byte("val249"))},
-		//{248, memEnv.hasher.Hash([]byte("val248"))},
-		//{247, memEnv.hasher.Hash([]byte("val247"))},
-		//{15, memEnv.hasher.Hash([]byte("val15"))},
+		//{Key: 0, Val: memEnv.hasher.Hash([]byte("val0"))},
+		//{Key: 1, Val: memEnv.hasher.Hash([]byte("val1"))},
+		{1, memEnv.hasher.Hash([]byte("val1"))},
+		{2, memEnv.hasher.Hash([]byte("val2"))},
+		{3, memEnv.hasher.Hash([]byte("val3"))},
+		{4, memEnv.hasher.Hash([]byte("val4"))},
+		{5, memEnv.hasher.Hash([]byte("val5"))},
+		{6, memEnv.hasher.Hash([]byte("val6"))},
+		{7, memEnv.hasher.Hash([]byte("val7"))},
+		{8, memEnv.hasher.Hash([]byte("val8"))},
+		{9, memEnv.hasher.Hash([]byte("val9"))},
+		{10, memEnv.hasher.Hash([]byte("val10"))},
+		{11, memEnv.hasher.Hash([]byte("val11"))},
+		{12, memEnv.hasher.Hash([]byte("val12"))},
+		{13, memEnv.hasher.Hash([]byte("val13"))},
+		{14, memEnv.hasher.Hash([]byte("val14"))},
+		{200, memEnv.hasher.Hash([]byte("val200"))},
+		{20, memEnv.hasher.Hash([]byte("val20"))},
+		{21, memEnv.hasher.Hash([]byte("val21"))},
+		{22, memEnv.hasher.Hash([]byte("val22"))},
+		{23, memEnv.hasher.Hash([]byte("val23"))},
+		{24, memEnv.hasher.Hash([]byte("val24"))},
+		{26, memEnv.hasher.Hash([]byte("val26"))},
+		{37, memEnv.hasher.Hash([]byte("val37"))},
+		{255, memEnv.hasher.Hash([]byte("val255"))},
+		{254, memEnv.hasher.Hash([]byte("val254"))},
+		{253, memEnv.hasher.Hash([]byte("val253"))},
+		{252, memEnv.hasher.Hash([]byte("val252"))},
+		{251, memEnv.hasher.Hash([]byte("val251"))},
+		{250, memEnv.hasher.Hash([]byte("val250"))},
+		{249, memEnv.hasher.Hash([]byte("val249"))},
+		{248, memEnv.hasher.Hash([]byte("val248"))},
+		{247, memEnv.hasher.Hash([]byte("val247"))},
+		{15, memEnv.hasher.Hash([]byte("val15"))},
 	}
 	testMultiUpdate(t, memEnv, items, 8)
 }
@@ -929,19 +929,6 @@ func testMultiUpdate(t *testing.T, env testEnv, items []Item, depth uint8) (time
 	smt1 := newSMT(t, env.hasher, db1, depth)
 	smt2 := newSMT(t, env.hasher, db2, depth)
 
-	//smt2.Set(0, env.hasher.Hash([]byte("val00")))
-	starT2 := time.Now()
-	err = smt2.MultiSet(items)
-	if err != nil {
-		t.Fatal(err)
-	}
-	tc2 := time.Since(starT2)
-	fmt.Printf("MultiSet    time cost %v, depth %d, keys %d\n", tc2, depth, len(items))
-	_, err = smt2.Commit(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	//smt1.Set(0, env.hasher.Hash([]byte("val00")))
 	starT1 := time.Now()
 	err = smt1.MultiUpdate(items)
@@ -956,7 +943,20 @@ func testMultiUpdate(t *testing.T, env testEnv, items []Item, depth uint8) (time
 		t.Fatal(err)
 	}
 
-	//verifyItems(t, smt1, smt2, items)
+	//smt2.Set(0, env.hasher.Hash([]byte("val00")))
+	starT2 := time.Now()
+	err = smt2.MultiSet(items)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tc2 := time.Since(starT2)
+	fmt.Printf("MultiSet    time cost %v, depth %d, keys %d\n", tc2, depth, len(items))
+	_, err = smt2.Commit(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifyItems(t, smt1, smt2, items)
 	return tc1, tc2
 }
 
