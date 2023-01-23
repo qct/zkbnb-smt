@@ -6,12 +6,16 @@
 package bsmt
 
 type (
+	// Version is the number represents version.
 	Version uint64
 
+	// Item is key, value pair.
 	Item struct {
 		Key uint64
 		Val []byte
 	}
+
+	// SparseMerkleTree is implemented by types that represents a Sparse Merkle Tree and its operations.
 	SparseMerkleTree interface {
 		Size() uint64
 		Get(key uint64, version *Version) ([]byte, error)

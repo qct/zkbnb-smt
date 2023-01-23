@@ -14,6 +14,7 @@ const (
 	versionSize = 40
 )
 
+// NewTreeNode initializes a tree node of given depth, path, nil hashes and hasher, internal hashes will be set as well.
 func NewTreeNode(depth uint8, path uint64, nilHashes *nilHashes, hasher *Hasher) *TreeNode {
 	treeNode := &TreeNode{
 		nilHash:      nilHashes.Get(depth),
@@ -37,8 +38,10 @@ func NewTreeNode(depth uint8, path uint64, nilHashes *nilHashes, hasher *Hasher)
 	return treeNode
 }
 
+// InternalNode is the internal node of a tree node.
 type InternalNode []byte
 
+// TreeNode is a 4-depth nodes has 16 children and 14 InternalNode.
 type TreeNode struct {
 	mu        sync.RWMutex
 	Children  [16]*TreeNode
@@ -55,7 +58,7 @@ type TreeNode struct {
 	internalVer  []Version
 }
 
-// Root Get latest hash of a node
+// Root gets the latest hash of a node.
 func (node *TreeNode) Root() []byte {
 	node.mu.RLock()
 	defer node.mu.RUnlock()
@@ -66,7 +69,7 @@ func (node *TreeNode) Root() []byte {
 	return node.Versions[len(node.Versions)-1].Hash
 }
 
-// Root Get latest hash of a node without a lock
+// Root gets the latest hash of a node without a lock.
 func (node *TreeNode) root() []byte {
 	if len(node.Versions) == 0 {
 		return node.nilHash
@@ -74,6 +77,7 @@ func (node *TreeNode) root() []byte {
 	return node.Versions[len(node.Versions)-1].Hash
 }
 
+// Set sets value at given version, override if exists, otherwise append.
 func (node *TreeNode) Set(hash []byte, version Version) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
@@ -93,6 +97,7 @@ func (node *TreeNode) newVersion(version *VersionInfo) {
 	node.Versions = append(node.Versions, version)
 }
 
+// SetChildren sets child at given nibble and version, re-compute hashes all along the path.
 func (node *TreeNode) SetChildren(child *TreeNode, nibble int, version Version) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
@@ -137,7 +142,7 @@ func (node *TreeNode) SetChildren(child *TreeNode, nibble int, version Version) 
 	})
 }
 
-// Recompute all internal hashes
+// ComputeInternalHash computes all internal hashes.
 func (node *TreeNode) ComputeInternalHash() {
 	node.mu.Lock()
 	defer node.mu.Unlock()
@@ -159,6 +164,7 @@ func (node *TreeNode) ComputeInternalHash() {
 	}
 }
 
+// Copy copies the tree node.
 func (node *TreeNode) Copy() *TreeNode {
 	node.mu.RLock()
 	defer node.mu.RUnlock()
@@ -186,6 +192,7 @@ func (node *TreeNode) mark(nibble int) {
 	}
 }
 
+// Prune removes versions till given oldest version.
 func (node *TreeNode) Prune(oldestVersion Version) uint64 {
 	node.mu.Lock()
 	defer node.mu.Unlock()
@@ -210,6 +217,7 @@ func (node *TreeNode) Prune(oldestVersion Version) uint64 {
 	return uint64(originSize - len(node.Versions)*versionSize)
 }
 
+// Rollback rolls back the tree node to the given version.
 func (node *TreeNode) Rollback(targetVersion Version) (bool, uint64) {
 	node.mu.Lock()
 	defer node.mu.Unlock()
@@ -242,7 +250,7 @@ func (node *TreeNode) archive() {
 	node.temporary = true
 }
 
-// PreviousVersion returns the previous version number in the current TreeNode
+// PreviousVersion returns the previous version number in the current TreeNode.
 func (node *TreeNode) PreviousVersion() Version {
 	node.mu.RLock()
 	defer node.mu.RUnlock()
@@ -253,7 +261,7 @@ func (node *TreeNode) PreviousVersion() Version {
 	return node.Versions[len(node.Versions)-2].Ver
 }
 
-// size returns the current node size
+// Size returns the current node size.
 func (node *TreeNode) Size() uint64 {
 	if node.temporary {
 		return uint64(len(node.Versions) * versionSize)
@@ -283,12 +291,13 @@ func (node *TreeNode) Release(oldestVersion Version) uint64 {
 	return size
 }
 
-// The nodes without child data.
+// IsTemporary tests if the node without child data,
 // will be extended when it needs to be searched down.
 func (node *TreeNode) IsTemporary() bool {
 	return node.temporary
 }
 
+// ToStorageTreeNode converts the tree node to storage tree node for persistence purpose.
 func (node *TreeNode) ToStorageTreeNode() *StorageTreeNode {
 	node.mu.RLock()
 	defer node.mu.RUnlock()
@@ -307,15 +316,18 @@ func (node *TreeNode) ToStorageTreeNode() *StorageTreeNode {
 	}
 }
 
+// VersionInfo contains version and hash value, each has a length of 40 bytes.
 type VersionInfo struct {
 	Ver  Version
 	Hash []byte
 }
 
+// StorageLeafNode is the leaf node used for persistence.
 type StorageLeafNode struct {
 	Versions []*VersionInfo `rlp:"optional"`
 }
 
+// StorageTreeNode is the struct used for persistence.
 type StorageTreeNode struct {
 	Children  [16]*StorageLeafNode `rlp:"optional"`
 	Internals [14]InternalNode     `rlp:"optional"`
@@ -323,6 +335,7 @@ type StorageTreeNode struct {
 	Path      uint64               `rlp:"optional"`
 }
 
+// ToTreeNode converts StorageTreeNode to TreeNode.
 func (node *StorageTreeNode) ToTreeNode(depth uint8, nilHashes *nilHashes, hasher *Hasher) *TreeNode {
 	treeNode := &TreeNode{
 		Internals:    node.Internals,

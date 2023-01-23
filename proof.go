@@ -5,4 +5,5 @@
 
 package bsmt
 
+// Proof is Merkle proof.
 type Proof [][]byte

@@ -28,15 +28,9 @@ var (
 	sep                       = []byte(`:`)
 )
 
-// Encode key, format: t:${depth}:${path}
-func storageFullTreeNodeKey(depth uint8, path uint64) []byte {
-	pathBuf := make([]byte, 8)
-	binary.BigEndian.PutUint64(pathBuf, path)
-	return bytes.Join([][]byte{storageFullTreeNodePrefix, {depth}, pathBuf}, sep)
-}
-
 var _ SparseMerkleTree = (*BNBSparseMerkleTree)(nil)
 
+// NewSparseMerkleTree creates an SMT of given hasher, database, depth, nil hashes of every depth and other options.
 func NewSparseMerkleTree(hasher *Hasher, db database.TreeDB, maxDepth uint8, hashes [][]byte, opts ...Option) (SparseMerkleTree, error) {
 	if maxDepth == 0 || maxDepth%4 != 0 {
 		return nil, ErrInvalidDepth
@@ -91,6 +85,11 @@ func NewSparseMerkleTree(hasher *Hasher, db database.TreeDB, maxDepth uint8, has
 	return smt, nil
 }
 
+// NewBNBSparseMerkleTree creates an SMT of given hasher, database, depth, nil hashes of leaf nodes and other options.
+//
+// Note: this constructor will do extra nil hash calculations for every depth since parameter nilHash is the nil hash of leaves.
+//
+// For performance concern, please refer to NewSparseMerkleTree if this constructor being called frequently.
 func NewBNBSparseMerkleTree(hasher *Hasher, db database.TreeDB, maxDepth uint8, nilHash []byte,
 	opts ...Option) (SparseMerkleTree, error) {
 
@@ -147,21 +146,11 @@ func NewBNBSparseMerkleTree(hasher *Hasher, db database.TreeDB, maxDepth uint8, 
 	return smt, nil
 }
 
-func constructNilHashes(maxDepth uint8, nilHash []byte, hasher *Hasher) *nilHashes {
-	hashes := make([][]byte, maxDepth+1)
-	hashes[maxDepth] = nilHash
-	for i := 1; i <= int(maxDepth); i++ {
-		nHash := hasher.Hash(nilHash, nilHash)
-		hashes[maxDepth-uint8(i)] = nHash
-		nilHash = nHash
-	}
-	return &nilHashes{hashes}
-}
-
 type nilHashes struct {
 	hashes [][]byte
 }
 
+// Get gets nil hash of the given depth.
 func (h *nilHashes) Get(depth uint8) []byte {
 	if len(h.hashes)-1 < int(depth) {
 		return nil
@@ -396,10 +385,12 @@ func (tree *BNBSparseMerkleTree) extendNode(node *TreeNode, nibble, path uint64,
 	return nil
 }
 
+// Size returns memory usage in bytes.
 func (tree *BNBSparseMerkleTree) Size() uint64 {
 	return tree.rootSize
 }
 
+// Get gets value of given key at given version.
 func (tree *BNBSparseMerkleTree) Get(key uint64, version *Version) ([]byte, error) {
 	if tree.IsEmpty() {
 		return nil, ErrEmptyRoot
@@ -458,6 +449,7 @@ func (tree *BNBSparseMerkleTree) Get(key uint64, version *Version) ([]byte, erro
 	return tree.nilHashes.Get(tree.maxDepth), nil
 }
 
+// Set sets key, value to SMT
 func (tree *BNBSparseMerkleTree) Set(key uint64, val []byte) error {
 	return tree.SetWithVersion(key, val, tree.version+1)
 }
@@ -622,14 +614,17 @@ func (tree *BNBSparseMerkleTree) setIntermediateAndLeaves(tmpJournal *journal, i
 	return targetNode, nil
 }
 
+// IsEmpty tests if SMT is empty.
 func (tree *BNBSparseMerkleTree) IsEmpty() bool {
 	return bytes.Equal(tree.root.Root(), tree.nilHashes.Get(0))
 }
 
+// Root returns root hash of SMT.
 func (tree *BNBSparseMerkleTree) Root() []byte {
 	return tree.root.Root()
 }
 
+// GetProof returns merkle proof for given key.
 func (tree *BNBSparseMerkleTree) GetProof(key uint64) (Proof, error) {
 	proofs := make([][]byte, 0, tree.maxDepth/4)
 	if tree.IsEmpty() {
@@ -677,6 +672,7 @@ func (tree *BNBSparseMerkleTree) GetProof(key uint64) (Proof, error) {
 	return utils.ReverseBytes(proofs[:]), nil
 }
 
+// VerifyProof tests if the given key can be proved by given proof.
 func (tree *BNBSparseMerkleTree) VerifyProof(key uint64, proof Proof) bool {
 	if key >= 1<<tree.maxDepth {
 		return false
@@ -735,14 +731,17 @@ func (tree *BNBSparseMerkleTree) VerifyProof(key uint64, proof Proof) bool {
 	return bytes.Equal(root, node)
 }
 
+// LatestVersion gets the latest version of SMT.
 func (tree *BNBSparseMerkleTree) LatestVersion() Version {
 	return tree.version
 }
 
+// RecentVersion gets the recent version of SMT, recent version is the version less than the newest version.
 func (tree *BNBSparseMerkleTree) RecentVersion() Version {
 	return tree.recentVersion
 }
 
+// Versions gets all root versions.
 func (tree *BNBSparseMerkleTree) Versions() []Version {
 	tree.root.mu.RLock()
 	defer tree.root.mu.RUnlock()
@@ -753,6 +752,7 @@ func (tree *BNBSparseMerkleTree) Versions() []Version {
 	return versions
 }
 
+// Reset clears uncommitted changes.
 func (tree *BNBSparseMerkleTree) Reset() {
 	tree.journal.flush()
 	tree.root = tree.lastSaveRoot
@@ -792,11 +792,12 @@ func (tree *BNBSparseMerkleTree) writeNode(db database.Batcher, fullNode *TreeNo
 	return changed, nil
 }
 
+// Commit persists changes to state db.
 func (tree *BNBSparseMerkleTree) Commit(recentVersion *Version) (Version, error) {
 	return tree.CommitWithNewVersion(recentVersion, nil)
 }
 
-// CommitWithNewVersion commits SMT with specified version.
+// CommitWithNewVersion commits SMT with specified version, persists changes to state db.
 func (tree *BNBSparseMerkleTree) CommitWithNewVersion(recentVersion *Version, newVersion *Version) (Version, error) {
 	var newVer Version
 	if newVersion == nil {
@@ -931,6 +932,7 @@ func (tree *BNBSparseMerkleTree) rollback(child *TreeNode, oldVersion Version, d
 	return changed, nil
 }
 
+// Rollback rolls back SMT to given version.
 func (tree *BNBSparseMerkleTree) Rollback(version Version) error {
 	if tree.IsEmpty() {
 		return ErrEmptyRoot
@@ -1013,4 +1015,22 @@ func (tree *BNBSparseMerkleTree) recompute(node *TreeNode, journals *journal) {
 			child = parent
 		}
 	}
+}
+
+// Encode key, format: t:${depth}:${path}
+func storageFullTreeNodeKey(depth uint8, path uint64) []byte {
+	pathBuf := make([]byte, 8)
+	binary.BigEndian.PutUint64(pathBuf, path)
+	return bytes.Join([][]byte{storageFullTreeNodePrefix, {depth}, pathBuf}, sep)
+}
+
+func constructNilHashes(maxDepth uint8, nilHash []byte, hasher *Hasher) *nilHashes {
+	hashes := make([][]byte, maxDepth+1)
+	hashes[maxDepth] = nilHash
+	for i := 1; i <= int(maxDepth); i++ {
+		nHash := hasher.Hash(nilHash, nilHash)
+		hashes[maxDepth-uint8(i)] = nHash
+		nilHash = nHash
+	}
+	return &nilHashes{hashes}
 }
