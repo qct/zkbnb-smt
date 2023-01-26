@@ -413,8 +413,7 @@ func (tree *BNBSparseMerkleTree) Get(key uint64, version *Version) ([]byte, erro
 	}
 
 	// read from cache
-	cached, ok := tree.dbCache.Get(key)
-	if ok {
+	if cached, ok := tree.dbCache.Get(key); ok {
 		node := cached.(*TreeNode)
 		for i := len(node.Versions) - 1; i >= 0; i-- {
 			if node.Versions[i].Ver <= *version {
@@ -423,8 +422,9 @@ func (tree *BNBSparseMerkleTree) Get(key uint64, version *Version) ([]byte, erro
 		}
 	}
 
-	// read from db if cache miss
-	rlpBytes, err := tree.db.Get(storageFullTreeNodeKey(tree.maxDepth, key))
+	// read parent from db if cache miss
+	parentDepth := tree.maxDepth - 4
+	rlpBytes, err := tree.db.Get(storageFullTreeNodeKey(parentDepth, key>>4))
 	if errors.Is(err, database.ErrDatabaseNotFound) {
 		return nil, ErrNodeNotFound
 	}
@@ -438,11 +438,15 @@ func (tree *BNBSparseMerkleTree) Get(key uint64, version *Version) ([]byte, erro
 	}
 
 	// cache node that read from db
-	tree.dbCache.Add(key, storageTreeNode.ToTreeNode(tree.maxDepth, tree.nilHashes, tree.hasher))
-
-	for i := len(storageTreeNode.Versions) - 1; i >= 0; i-- {
-		if storageTreeNode.Versions[i].Ver <= *version {
-			return storageTreeNode.Versions[i].Hash, nil
+	parent := storageTreeNode.ToTreeNode(parentDepth, tree.nilHashes, tree.hasher)
+	leaf := parent.Children[key&0xf]
+	if leaf == nil {
+		return nil, ErrNodeNotFound
+	}
+	tree.dbCache.Add(key, leaf)
+	for i := len(leaf.Versions) - 1; i >= 0; i-- {
+		if leaf.Versions[i].Ver <= *version {
+			return leaf.Versions[i].Hash, nil
 		}
 	}
 
@@ -821,6 +825,9 @@ func (tree *BNBSparseMerkleTree) CommitWithNewVersion(recentVersion *Version, ne
 		// write tree nodes, prune old version
 		batch := tree.db.NewBatch()
 		err := tree.journal.iterate(func(key journalKey, node *TreeNode) error {
+			if node.depth == tree.maxDepth {
+				return nil
+			}
 			changed, err := tree.writeNode(batch, node, newVer, recentVersion)
 			if err != nil {
 				return err
